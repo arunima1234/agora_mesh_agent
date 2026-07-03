@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MDM Intelligence Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+</head>
+<body class="bg-gray-900 text-white p-6 m-0 min-h-screen font-sans">
+    <div class="max-w-7xl mx-auto w-full h-full flex flex-col gap-6">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center border-b border-gray-700 pb-4">
+            <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400">
+                Governance Agent Dashboard
+            </h1>
+            <div class="flex gap-4">
+                <button id="connectBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold shadow-lg transition-all">
+                    Connect Voice Agent
+                </button>
+                <button id="disconnectBtn" class="hidden bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-lg font-bold shadow-lg transition-all">
+                    Disconnect Agent
+                </button>
+            </div>
+        </header>
+
+        <!-- MDM Context / Enhanced Hero Section -->
+        <section class="bg-gray-800 rounded-xl p-8 border border-gray-700 shadow-xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-blue-600 rounded-full opacity-10 blur-3xl"></div>
+            
+            <div class="relative z-10 flex flex-col lg:flex-row justify-between gap-8 items-start">
+                <div class="max-w-4xl">
+                    <h2 class="text-2xl font-bold text-gray-100 mb-4 tracking-wide">Enterprise Master Data Management</h2>
+                    
+                    <div class="mb-4 bg-gray-900/40 p-5 rounded-xl border border-gray-700/50 backdrop-blur-sm">
+                        <p class="text-gray-300 text-lg leading-relaxed">
+                            <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-teal-400 font-extrabold">Powered by the Agora RTC Network and Conversational AI:</span> 
+                            Connect with the interactive voice agent to explore core concepts across Master Data Management, Data Governance, and Data Mesh architectures. The agent acts as an on-demand, real-time data strategy knowledge base capable of explaining complex frameworks and enterprise integrations instantly.
+                        </p>
+                    </div>
+                    
+                    <p class="text-gray-400 text-sm pl-3 border-l-2 border-teal-500/50 italic">
+                        The monitoring charts below provide a unified semantic view tracking live operational entity records across core business dimensions.
+                    </p>
+                </div>
+                
+                <!-- Visual Domain Badges -->
+                <div class="flex flex-wrap lg:flex-col gap-2.5 w-full lg:w-auto shrink-0 bg-gray-900/30 p-4 rounded-xl border border-gray-700/40">
+                    <div class="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-1 hidden lg:block">Monitored Domains</div>
+                    <span class="text-xs font-semibold px-3 py-2 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-sm flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span> Customer Domain (LTV)
+                    </span>
+                    <span class="text-xs font-semibold px-3 py-2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-sm flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Supplier Domain (Reliability)
+                    </span>
+                    <span class="text-xs font-semibold px-3 py-2 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 shadow-sm flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> Items Domain (Inventory)
+                    </span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg" style="height: 400px;">
+                <canvas id="chartCustomers"></canvas>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg" style="height: 400px;">
+                <canvas id="chartSuppliers"></canvas>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg" style="height: 400px;">
+                <canvas id="chartItems"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const rtcClient = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        let localMicTrack = null;
+
+        // Listen for the agent's audio
+        rtcClient.on("user-published", async (user, mediaType) => {
+            await rtcClient.subscribe(user, mediaType);
+            if (mediaType === "audio") {
+                user.audioTrack.play();
+                console.log("Agent audio playing");
+            }
+        });
+
+        // Connect Logic
+        connectBtn.onclick = async () => {
+            try {
+                connectBtn.innerText = "Connecting...";
+                
+                // 1. Fetch Dynamic Token
+                const res = await fetch('/api/get-token?channel=data-mesh-sync-test');
+                if (!res.ok) throw new Error("Server endpoint /api/get-token not found. Make sure server.py is running.");
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+
+                // 2. Join Channel
+                await rtcClient.join(data.app_id, "data-mesh-sync-test", data.token, 1111);
+                
+                // 3. Publish Mic
+                localMicTrack = await AgoraRTC.createMicrophoneAudioTrack();
+                await rtcClient.publish([localMicTrack]);
+                
+                // 4. Trigger Server Agent
+                const agentRes = await fetch('/api/start-agent', { method: 'POST' });
+                if (!agentRes.ok) throw new Error("Failed to start agent on server.");
+                
+                // Toggle Buttons
+                connectBtn.classList.add('hidden');
+                disconnectBtn.classList.remove('hidden');
+                connectBtn.innerText = "Connect Voice Agent"; // reset text for next initialization
+                
+            } catch (err) {
+                alert("Connection Failed: " + err.message);
+                console.error(err);
+                connectBtn.innerText = "Connect Voice Agent";
+            }
+        };
+
+        // Disconnect Logic
+        disconnectBtn.onclick = async () => {
+            try {
+                if (localMicTrack) {
+                    localMicTrack.close();
+                    localMicTrack = null;
+                }
+                await rtcClient.leave();
+                console.log("Disconnected from voice channel");
+
+                disconnectBtn.classList.add('hidden');
+                connectBtn.classList.remove('hidden');
+            } catch (err) {
+                console.error("Error disconnecting:", err);
+            }
+        };
+
+        const commonOptions = (titleText) => ({
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: titleText, color: '#e5e7eb', font: { size: 16, weight: 'bold' }, padding: { bottom: 20 } },
+                legend: { display: false }
+            },
+            scales: {
+                y: { grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+            }
+        });
+
+        // Safe Data Mappers
+        const getLabels = (arr, key) => arr && Array.isArray(arr) ? arr.map(item => item[key]) : [];
+        const getValues = (arr, key) => arr && Array.isArray(arr) ? arr.map(item => item[key]) : [];
+
+        // Load Charts
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/chart-data');
+                const data = await res.json();
+                
+                new Chart(document.getElementById('chartCustomers'), { 
+                    type: 'bar', 
+                    data: { 
+                        labels: getLabels(data.customers, 'name'), 
+                        datasets: [{ data: getValues(data.customers, 'lifetime_value'), backgroundColor: '#3b82f6', borderRadius: 4 }] 
+                    }, 
+                    options: commonOptions('Customer LTV Data ($)') 
+                });
+                
+                new Chart(document.getElementById('chartSuppliers'), { 
+                    type: 'bar', 
+                    data: { 
+                        labels: getLabels(data.suppliers, 'name'), 
+                        datasets: [{ data: getValues(data.suppliers, 'reliability_score'), backgroundColor: '#10b981', borderRadius: 4 }] 
+                    }, 
+                    options: commonOptions('Supplier Reliability Score') 
+                });
+                
+                new Chart(document.getElementById('chartItems'), { 
+                    type: 'bar', 
+                    data: { 
+                        labels: getLabels(data.items, 'sku'), 
+                        datasets: [{ data: getValues(data.items, 'stock_level'), backgroundColor: '#8b5cf6', borderRadius: 4 }] 
+                    }, 
+                    options: commonOptions('Inventory Stock Levels') 
+                });
+            } catch (err) {
+                console.error("Failed to load chart data:", err);
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
