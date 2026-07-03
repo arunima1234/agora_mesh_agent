@@ -15,6 +15,12 @@ An enterprise-grade Master Data Management (MDM) Data Governance platform featur
   * 🔮 **Items Domain:** High-fidelity operational visibility over live SKU inventory thresholds and stock levels.
 
 ---
+## Demo Image
+
+This image shows the MDM Intelligence Dashboard initial state. Users can initiate a real-time voice session via the 'Connect Voice Agent' button to engage with an AI voice assistant on Master Data Management, Data Governance, and Data Mesh architectures.
+
+![Dashboard UI](Resources/agora_mesh_agent_demo_img.png)
+
 
 ## 🛠️ Infrastructure Prerequisites & Initial Setup
 
